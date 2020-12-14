@@ -5,8 +5,11 @@
 #
 # To run these tests, simply execute `nimble test`.
 
-import unittest
-
+import unittest, os
 import nestegg
-test "can add":
-  check true
+
+let testDir = currentSourcePath().parentDir()
+
+test "high level":
+  for d in open(testDir/"bear-av1-opus.webm").newDemuxer().iter():
+    discard
