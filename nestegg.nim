@@ -25,11 +25,14 @@ cPlugin:
 
   # Strip prefix from procs
   proc onSymbol*(sym: var Symbol) {.exportc, dynlib.} =
-    if (sym.kind == nskProc or sym.kind == nskType) and sym.name.startsWith("nestegg_"):
+    if (sym.kind == nskProc or sym.kind == nskType or sym.kind == nskConst) and sym.name.toLowerAscii.startsWith("nestegg_"):
       sym.name = sym.name.substr(8)
 
 # supplement automatic conversions with hand-edits
 cOverride:
+  const
+    CODEC_UNKNOWN = high(cint)
+    TRACK_UNKNOWN = high(cint)
   type
     io {.importc: "nestegg_io", header: headernestegg, bycopy} = object
       read: proc(buffer: pointer, length: csize_t, userdata: pointer): cint {.cdecl}
@@ -46,20 +49,44 @@ cImport nesteggPath, recurse=false
 proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl} =
   discard
 
+const unknownValue = high(int8)
 
 type
+  AudioCodec* = enum
+    acVorbis = (CODEC_VORBIS, "vorbis")
+    acOpus = (CODEC_OPUS, "opus")
+    acUnknown = (unknownValue, "unkown")
+  VideoCodec* = enum
+    vcVp8 = (CODEC_VP8, "vp8")
+    vcVp9 = (CODEC_VP9, "vp9")
+    vcAv1 = (CODEC_AV1, "av1")
+    vcUnknown = (unknownValue, "unkown")
+  TrackKind* = enum
+    tkVideo = (TRACK_VIDEO, "video")
+    tkAudio = (TRACK_AUDIO, "audio")
+    tkUnknown = (unknownValue, "unknown")
+  TrackObj* = object
+    case kind: TrackKind
+    of tkVideo:
+      videoCodec: VideoCodec
+      videoParams: video_params
+    of tkAudio:
+      audioCodec: AudioCodec
+      audioParams: audio_params
+    of tkUnknown:
+      discard
+  Track* = ref TrackObj
   DemuxerInitError* = object of IOError
   Demuxer* = object
     file: File
     context: ptr nestegg
-    audioParams: audio_params
-    pkt: ptr packet
-    videoParams: video_params
-    length, size: csize_t
-    duration, tstamp, pkt_tstam: clonglong # TODO: in C this is uint64_t, verify the nim type is ok
+    duration: uint64
     codecdata, ptrvar: ptr cuchar
-    cnt, i, j, track, tracks, pkt_cnt, pkt_track, data_items: cuint
     io: io
+    tracks: seq[Track]
+  Packet* = object
+    track: Track
+    data: ptr UncheckedArray[byte]
 
 proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
   let file = cast[File](file)
@@ -79,6 +106,27 @@ proc file_tell(file: pointer): clonglong {.cdecl} =
   let file = cast[File](file)
   return file.getFilePos
 
+proc newTrack(context: ptr nestegg, i: cuint): Track =
+  let trackType = track_type(context, i)
+  echo "FF: ", $i, " ", $trackType
+  let kind = case trackType:
+    of TRACK_UNKNOWN:
+      tkUnknown
+    else:
+      trackType.TrackKind
+  result = Track(
+    kind: kind
+  )
+  case result.kind:
+  of tkVideo:
+    if 0 != track_video_params(context, i, result.videoParams.addr):
+      raise newException(DemuxerInitError, "error initializing video track metadata $#" % $i)
+  of tkAudio:
+    if 0 != track_audio_params(context, i, result.audioParams.addr):
+      raise newException(DemuxerInitError, "error initializing audio track metadata $#" % $i)
+  else:
+    discard
+
 proc newDemuxer*(file: File): Demuxer =
   result = Demuxer(
     io: io(
@@ -88,15 +136,22 @@ proc newDemuxer*(file: File): Demuxer =
       userdata: cast[pointer](file)
     )
   )
-  let r = init(result.context.addr, result.io, cast[log](log_callback), -1)
-  if r != 0:
-    # open up the source file nestegg_init and insert debug statements
-    # to get a better idea what the problem is
+  let ri = init(result.context.addr, result.io, cast[log](log_callback), -1)
+  if ri != 0:
+    # insert statemnts into nestegg.h/nestegg_init for debugging 
     raise newException(DemuxerInitError, "initializing nestegg demuxer failed")
 
-iterator demux*(filename: string): string =
-  let file = open(filename)
-  let demuxer = newDemuxer(file)
-  file.close()
+  var n: cuint
+  if 0 != track_count(result.context, n.addr):
+      raise newException(DemuxerInitError, "could not retrieve track count")
+
+  if 0 != duration(result.context, result.duration.addr):
+      raise newException(DemuxerInitError, "could not retrieve duration")
+
+  for i in 0..<n:
+    result.tracks.add(newTrack(result.context, i))
+
+iterator iter*(demuxer: Demuxer): string =
+  yield "foo"
 
 

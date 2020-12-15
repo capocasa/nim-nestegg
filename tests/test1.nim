@@ -11,5 +11,7 @@ import nestegg
 let testDir = currentSourcePath().parentDir()
 
 test "high level":
-  for d in demux(testDir/"bear-av1-opus.webm"):
-    discard
+  let f = open(testDir/"bear-av1-opus.webm")
+  for d in newDemuxer(f).iter:
+    echo "D ", d
+  f.close
