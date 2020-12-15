@@ -1,5 +1,5 @@
 import nimterop/[build, cimport]
-import os
+import os, strutils
 
 # Nimterop setup
 
@@ -48,7 +48,7 @@ proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdec
 
 
 type
-  NesteggInitError* = object of IOError
+  DemuxerInitError* = object of IOError
   Demuxer* = object
     file: File
     context: ptr nestegg
@@ -61,28 +61,42 @@ type
     cnt, i, j, track, tracks, pkt_cnt, pkt_track, data_items: cuint
     io: io
 
-proc read(p: pointer, length: csize_t, file: pointer): cint {.cdecl} =
-  discard
+proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
+  let file = cast[File](file)
+  let n = file.readBuffer(buffer, length)
+  if n == 0:
+    if file.endOfFile:
+      return 0
+    else:
+      return -1
+  return 1
 
-proc seek(offset: clonglong, whent: cint, file: pointer): cint {.cdecl} =
-  discard
+proc file_seek(offset: clonglong, whence: cint, file: pointer): cint {.cdecl} =
+  let file = cast[File](file)
+  file.setFilePos(offset, whence.FileSeekPos)
 
-proc tell(file: pointer): clonglong {.cdecl} =
-  discard
+proc file_tell(file: pointer): clonglong {.cdecl} =
+  let file = cast[File](file)
+  return file.getFilePos
 
 proc newDemuxer*(file: File): Demuxer =
   result = Demuxer(
     io: io(
-      read: read,
-      seek: seek,
-      tell: tell,
+      read: file_read,
+      seek: file_seek,
+      tell: file_tell,
       userdata: cast[pointer](file)
     )
   )
-  var r = init(result.context.addr, result.io, cast[log](log_callback), -1)
+  let r = init(result.context.addr, result.io, cast[log](log_callback), -1)
+  if r != 0:
+    # open up the source file nestegg_init and insert debug statements
+    # to get a better idea what the problem is
+    raise newException(DemuxerInitError, "initializing nestegg demuxer failed")
 
-iterator iter*(demuxer: Demuxer): string =
-  discard
+iterator demux*(filename: string): string =
+  let file = open(filename)
+  let demuxer = newDemuxer(file)
+  file.close()
 
 
-  
