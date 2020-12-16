@@ -12,6 +12,7 @@ let testDir = currentSourcePath().parentDir()
 
 test "high level":
   let f = open(testDir/"bear-av1-opus.webm")
-  for d in newDemuxer(f).iter:
-    echo "D ", d
+  for packet in newDemuxer(f).packets:
+    for n, data in packet.data:
+      echo $n
   f.close

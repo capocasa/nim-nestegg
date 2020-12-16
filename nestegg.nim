@@ -25,7 +25,9 @@ cPlugin:
 
   # Strip prefix from procs
   proc onSymbol*(sym: var Symbol) {.exportc, dynlib.} =
-    if (sym.kind == nskProc or sym.kind == nskType or sym.kind == nskConst) and sym.name.toLowerAscii.startsWith("nestegg_"):
+    if sym.kind == nskType and sym.name == "nestegg_packet":
+      sym.name = "cpacket"
+    elif (sym.kind == nskProc or sym.kind == nskType or sym.kind == nskConst) and sym.name.toLowerAscii.startsWith("nestegg_"):
       sym.name = sym.name.substr(8)
 
 # supplement automatic conversions with hand-edits
@@ -76,17 +78,22 @@ type
     of tkUnknown:
       discard
   Track* = ref TrackObj
-  DemuxerInitError* = object of IOError
-  Demuxer* = object
+  InitError* = object of IOError
+  DemuxError* = object of IOError
+  DemuxerObj* = object
     file: File
     context: ptr nestegg
     duration: uint64
     codecdata, ptrvar: ptr cuchar
     io: io
     tracks: seq[Track]
-  Packet* = object
+  Demuxer = ref DemuxerObj
+  PacketObj* = object
+    raw: ptr cpacket
     track: Track
-    data: ptr UncheckedArray[byte]
+    n: cuint
+    timestamp: culonglong
+  Packet = ref PacketObj
 
 proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
   let file = cast[File](file)
@@ -108,50 +115,69 @@ proc file_tell(file: pointer): clonglong {.cdecl} =
 
 proc newTrack(context: ptr nestegg, i: cuint): Track =
   let trackType = track_type(context, i)
-  echo "FF: ", $i, " ", $trackType
   let kind = case trackType:
     of TRACK_UNKNOWN:
       tkUnknown
     else:
       trackType.TrackKind
-  result = Track(
-    kind: kind
-  )
+  result = Track(kind: kind)
   case result.kind:
   of tkVideo:
     if 0 != track_video_params(context, i, result.videoParams.addr):
-      raise newException(DemuxerInitError, "error initializing video track metadata $#" % $i)
+      raise newException(InitError, "error initializing video track metadata $#" % $i)
   of tkAudio:
     if 0 != track_audio_params(context, i, result.audioParams.addr):
-      raise newException(DemuxerInitError, "error initializing audio track metadata $#" % $i)
+      raise newException(InitError, "error initializing audio track metadata $#" % $i)
   else:
     discard
 
+proc cleanup(demuxer: Demuxer) =
+  destroy(demuxer.context)
+
 proc newDemuxer*(file: File): Demuxer =
-  result = Demuxer(
-    io: io(
-      read: file_read,
-      seek: file_seek,
-      tell: file_tell,
-      userdata: cast[pointer](file)
-    )
-  )
-  let ri = init(result.context.addr, result.io, cast[log](log_callback), -1)
-  if ri != 0:
-    # insert statemnts into nestegg.h/nestegg_init for debugging 
-    raise newException(DemuxerInitError, "initializing nestegg demuxer failed")
+  new(result, cleanup)
+  result.io.read = file_read
+  result.io.seek = file_seek
+  result.io.tell = file_tell
+  result.io.userdata = cast[pointer](file)
+  if 0 != init(result.context.addr, result.io, cast[log](log_callback), -1):
+    # insert statemnts into nestegg.h/nestegg_init for more detailed debugging 
+    raise newException(InitError, "initializing nestegg demuxer failed")
 
   var n: cuint
   if 0 != track_count(result.context, n.addr):
-      raise newException(DemuxerInitError, "could not retrieve track count")
+      raise newException(InitError, "could not retrieve track count")
 
   if 0 != duration(result.context, result.duration.addr):
-      raise newException(DemuxerInitError, "could not retrieve duration")
+      raise newException(InitError, "could not retrieve duration")
 
   for i in 0..<n:
     result.tracks.add(newTrack(result.context, i))
 
-iterator iter*(demuxer: Demuxer): string =
-  yield "foo"
+proc cleanup(packet: Packet) =
+  free_packet(packet.raw)
+
+iterator packets*(demuxer: Demuxer): Packet =
+  var packet: Packet
+  new(packet, cleanup)
+  while 0 != read_packet(demuxer.context, packet.raw.addr):
+    var i:cuint
+    if 0 != packet_track(packet.raw, i.addr):
+      raise newException(DemuxError, "could not retrieve packet track number")
+    packet.track = demuxer.tracks[i]
+    if 0 != packet_count(packet.raw, packet.n.addr):
+      raise newException(DemuxError, "could not retrieve number of data objects")
+    if 0 != packet_tstamp(packet.raw, packet.timestamp.addr):
+      raise newException(DemuxError, "could not retrieve packet timestamp")
+    yield packet
+
+iterator data*(packet: Packet): (csize_t, ptr UncheckedArray[byte]) =
+  for i in 0..<packet.n:
+    var chunk:ptr cuchar
+    var size:csize_t
+    if 0 != packet_data(packet.raw, i.cuint, chunk.addr, size.addr):
+      raise newException(DemuxError, "could not retrieve data chunk")
+    yield (size, cast[ptr UncheckedArray[byte]](chunk))
+
 
 
