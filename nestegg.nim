@@ -113,6 +113,9 @@ proc file_tell(file: pointer): clonglong {.cdecl} =
   let file = cast[File](file)
   return file.getFilePos
 
+proc cleanup(track: Track) =
+  discard
+
 proc newTrack(context: ptr nestegg, i: cuint): Track =
   let trackType = track_type(context, i)
   let kind = case trackType:
@@ -120,7 +123,12 @@ proc newTrack(context: ptr nestegg, i: cuint): Track =
       tkUnknown
     else:
       trackType.TrackKind
-  result = Track(kind: kind)
+  if kind == tkVideo:
+    # workaround to register finalizer, call new for the default value
+    new(result, cleanup)
+    assert result.kind == tkVideo
+  else:
+    result = Track(kind: kind)
   case result.kind:
   of tkVideo:
     if 0 != track_video_params(context, i, result.videoParams.addr):
