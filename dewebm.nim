@@ -7,8 +7,8 @@ import strutils
 
 import dewebm/nestegg
 
-#export nextegg.audio_params
-#export nestegg.video_params
+export audio_params
+export video_params
 
 proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl} =
   # TODO: implement logging
