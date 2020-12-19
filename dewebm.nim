@@ -202,15 +202,15 @@ iterator packets*(demuxer: Demuxer): Packet =
       raise newException(DemuxError, "could not retrieve number of data objects")
     if 0 != packet_tstamp(packet.raw, packet.timestamp.addr):
       raise newException(DemuxError, "could not retrieve packet timestamp")
-    yield packet
+    
+    for i in 0..<packet.length:
+      var chunk:Chunk
+      new(chunk)
+      if 0 != packet_data(packet.raw, i.cuint, cast[ptr ptr cuchar](chunk.data.addr), chunk.size.addr):
+        raise newException(DemuxError, "could not retrieve data chunk from track $#" % $i)
+      packet.chunks.add(chunk)
 
-iterator data*(packet: Packet): Chunk =
-  for i in 0..<packet.length:
-    var chunk:Chunk
-    new(chunk)
-    if 0 != packet_data(packet.raw, i.cuint, cast[ptr ptr cuchar](chunk.data.addr), chunk.size.addr):
-      raise newException(DemuxError, "could not retrieve data chunk")
-    yield chunk
+    yield packet
 
 template toOpenArray*(chunk:Chunk, first, last: int): openArray[byte] =
   toOpenArray(chunk.data, first, last)
