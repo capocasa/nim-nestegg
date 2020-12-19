@@ -141,14 +141,15 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
     discard
   result.num = trackNum
   var n:cuint
-  if 0 != track_codec_data_count(context, trackNum, n.addr):
-    raise newException(InitError, "error initialzing number of codec initialaztion data chunks for track $#" % $trackNum)
-  for i in 0..<n:
-    var codecChunk:CodecChunk
-    new(codecChunk)  # codec data gets freed with the context
-    if 0 != track_codec_data(context, trackNum, i.cuint, cast[ptr ptr cuchar](codecChunk.data.addr), codecChunk.size.addr):
-      raise newException(InitError, "error initializing codec initialization data chunk $# of track $#" % [$i, $trackNum])
-    result.codecData.add(codecChunk)
+  if 0 == track_codec_data_count(context, trackNum, n.addr):
+    # just ignore errors for this one, they get returned when a codec isn't vorbis or opus
+    # if there really is womething wrong with the init data, we catch it in track_codec_data below
+    for i in 0..<n:
+      var codecChunk:CodecChunk
+      new(codecChunk)  # codec data gets freed with the context so no finalizer
+      if 0 != track_codec_data(context, trackNum, i.cuint, cast[ptr ptr cuchar](codecChunk.data.addr), codecChunk.size.addr):
+        raise newException(InitError, "error initializing codec initialization data chunk $# of track $#" % [$i, $trackNum])
+      result.codecData.add(codecChunk)
 
 proc newSource(file: File): Source =
   ## Create a set of callback functions for the wrapped library to call
