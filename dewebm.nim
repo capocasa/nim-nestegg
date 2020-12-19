@@ -87,11 +87,16 @@ type
     of tkUnknown:
       discard
     num*: csize_t
+    codecData*: seq[ptr UncheckedArray[byte]]
   Track* = ref TrackObj
   ChunkObj* = object
     size*: csize_t
     data*: ptr UncheckedArray[byte]
   Chunk* = ref ChunkObj
+  CodecChunkObj* = object
+    size*: csize_t
+    data*: ptr UncheckedArray[byte]
+  CodecChunk* = ref CodecChunkObj
   PacketObj* = object
     raw*: ptr cpacket
     length*: cuint
@@ -102,7 +107,6 @@ type
     file*: File
     context*: ptr nestegg
     duration*: uint64
-    codecdata*, ptrvar*: ptr cuchar
     io*: io
     tracks*: seq[Track]
   Demuxer* = ref DemuxerObj
@@ -151,6 +155,13 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
   else:
     discard
   result.num = trackNum
+  var n:csize_t
+  track_codec_data_count(context, trackNum, &n)
+  for i in 0..<n:
+    var codecData:CodecChunk
+    new(codecChunk)  # codec data gets freed with the context
+    track_codec_data(ctx, trackNum, i, codecChunk.data, &codecChunk.size)
+    result.codecData.add(codecChunk)
 
 proc cleanup(demuxer: Demuxer) =
   destroy(demuxer.context)
