@@ -2,6 +2,8 @@
 dewebm
 ======
 
+**Development version, unfinished! This is here for reference and does spit out data, but has not been tested properly with any real doceders.**
+
 WebM is a web standard audio/video file format supported by most browsers. It is a simplified subset of the Matroska file format and may only contain the VP8, VP9 or AV1 video codecs or the OGG or OPUS audio codecs.
 
 This is a Nim wrapper for the nestegg C library, which was designed for portability and efficiency. The wrapper is based on nimterop and links statically. The design is thin but featureful- the C API is exposed as is to preserve flexibility but with Nim language constructs and memory safety.
