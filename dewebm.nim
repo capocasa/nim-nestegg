@@ -201,7 +201,7 @@ proc cleanup(packet: Packet) =
   ## Object cleanup for packets. Explicitly frees the memory occupied by the packet.
   free_packet(packet.raw)
 
-iterator packets*(demuxer: Demuxer): Packet =
+iterator items*(demuxer: Demuxer): Packet =
   ## The iterater that retrieves packets from the demuxer. Note that a packet
   ## can be from various tracks, no guarantees are made in which order packets
   ## arrive in. Within the iterator, select codecs to handle the data and perform
@@ -229,10 +229,10 @@ iterator packets*(demuxer: Demuxer): Packet =
   
     new(packet) # cleanup already specified, once per type is enough
 
-template items*(demuxer: Demuxer) =
-  ## Convenience template that allows iterating directly over the demuxer object
-  ## without explicitly specifying a interator
-  packets(demuxer)
+#template items*(demuxer: Demuxer) =
+#  ## Convenience template that allows iterating directly over the demuxer object
+#  ## without explicitly specifying a interator
+#  packets(demuxer)
 
 template toOpenArray*(chunk:Chunk | CodecChunk, first, last: int): openArray[byte] =
   ## Allows passing a chunk of data to various collection functions that take an openArray
