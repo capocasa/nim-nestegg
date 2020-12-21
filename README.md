@@ -47,7 +47,7 @@ Example of regular use with one or more decoders
 Documentation
 -------------
 
-[nim-nestegg module documentation](//capocasa.github.io/nim-nestegg), including the low level wrapper, is available
+[nim-nestegg module documentation](//capocasa.github.io/nim-nestegg/nestegg.html), including the low level wrapper, is available
 
 
 Advisory
