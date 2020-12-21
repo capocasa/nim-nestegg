@@ -8,7 +8,7 @@ WebM is a web standard audio/video file format supported by most browsers. It is
 
 This is a Nim wrapper for the nestegg C library, which was designed for portability and efficiency. The wrapper is based on nimterop and links statically. The design is thin but featureful- the C API is exposed as is to preserve flexibility but with Nim language constructs and memory safety.
 
-Examples
+Example
 --------
 
 Example of regular use with one or more decoders
@@ -43,6 +43,12 @@ Example of regular use with one or more decoders
           # myDecoder.sendData(cast[pointer](chunk.data), chunk.length)
 
     file.close()
+
+Documentation
+-------------
+
+[nim-nestegg module documentation](//capocasa.github.io/nim-nestegg), including the low level wrapper, is available
+
 
 Advisory
 --------
