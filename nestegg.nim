@@ -5,7 +5,7 @@ import strutils
 ##
 ## wraps the popular and portable nestegg C library from mozilla in Nim goodness (expressiveness and memory safety)
 
-import dewebm/nestegg
+import nestegg/wrapper
 
 export audio_params
 export video_params
