@@ -23,10 +23,11 @@ type
     acOpus = (CODEC_OPUS, "opus")
     acUnknown = (unknownValue, "unkown")
   VideoCodec* = enum
-    ## Allowed codecs for WebM video, or flag unknown (av1 is unofficial but widely supported)
+    ## Allowed codecs for WebM video, or flag unknown
     vcVp8 = (CODEC_VP8, "vp8")
     vcVp9 = (CODEC_VP9, "vp9")
     vcAv1 = (CODEC_AV1, "av1")
+      ## av1 is de-facto part of webm and assumed to become official
     vcUnknown = (unknownValue, "unkown")
   TrackKind* = enum
     ## Track types, audio or video
@@ -57,12 +58,12 @@ type
     ## A chunk of data. Each multiplexed packet contains a series of these chunks that make up the
     ## actual encoded data to be sent to the decoder
     size*: csize_t
-    data*: ptr UncheckedArray[byte]
+    data*: ptr cuchar
   Chunk* = ref ChunkObj
   CodecChunkObj* = object
     ## A chunk of initialization data preperaed by the encoder and used to intialize a decoder
     size*: csize_t
-    data*: ptr UncheckedArray[byte]
+    data*: ptr cuchar
   CodecChunk* = ref CodecChunkObj
   PacketObj* = object
     ## An individual data packet. A stream of these is sent over a file or a network, each track's packets
@@ -130,13 +131,25 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
     result = Track(kind: kind)
   ]#
   result = Track(kind: kind)
+  let raw_codec_id = track_codec_id(context, trackNum)
   case result.kind:
   of tkVideo:
     if 0 != track_video_params(context, trackNum, result.videoParams.addr):
       raise newException(InitError, "error initializing video track metadata $#" % $trackNum)
+    result.videoCodec = case raw_codec_id:
+    of CODEC_UNKNOWN:
+      vcUnknown
+    else:
+      raw_codec_id.VideoCodec
+
   of tkAudio:
     if 0 != track_audio_params(context, trackNum, result.audioParams.addr):
       raise newException(InitError, "error initializing audio track metadata $#" % $trackNum)
+    result.audioCodec = case raw_codec_id:
+    of CODEC_UNKNOWN:
+      acUnknown
+    else:
+      raw_codec_id.AudioCodec
   else:
     discard
   result.num = trackNum
@@ -147,7 +160,7 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
     for i in 0..<n:
       var codecChunk:CodecChunk
       new(codecChunk)  # codec data gets freed with the context so no finalizer
-      if 0 != track_codec_data(context, trackNum, i.cuint, cast[ptr ptr cuchar](codecChunk.data.addr), codecChunk.size.addr):
+      if 0 != track_codec_data(context, trackNum, i.cuint, codecChunk.data.addr, codecChunk.size.addr):
         raise newException(InitError, "error initializing codec initialization data chunk $# of track $#" % [$i, $trackNum])
       result.codecData.add(codecChunk)
 
@@ -221,7 +234,7 @@ iterator items*(demuxer: Demuxer): Packet =
     for i in 0..<packet.length:
       var chunk:Chunk
       new(chunk)
-      if 0 != packet_data(packet.raw, i.cuint, cast[ptr ptr cuchar](chunk.data.addr), chunk.size.addr):
+      if 0 != packet_data(packet.raw, i.cuint, chunk.data.addr, chunk.size.addr):
         raise newException(DemuxError, "could not retrieve data chunk from track $#" % $i)
       packet.chunks.add(chunk)
 
@@ -233,6 +246,10 @@ iterator items*(demuxer: Demuxer): Packet =
 #  ## Convenience template that allows iterating directly over the demuxer object
 #  ## without explicitly specifying a interator
 #  packets(demuxer)
+
+iterator items*(packet: Packet): Chunk =
+  for p in packet.chunks:
+    yield p
 
 template toOpenArray*(chunk:Chunk | CodecChunk, first, last: int): openArray[byte] =
   ## Allows passing a chunk of data to various collection functions that take an openArray

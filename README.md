@@ -60,7 +60,7 @@ Directly using C-allocated memory, modifying object structure or directly interf
 Internals
 ---------
 
-**Memory safety''
+**Memory safety**
 
 There are two blobs of memory allocated in C by the nestegg library, accessible by untraced references `Demuxer.context` and `Packet.raw`.
 
