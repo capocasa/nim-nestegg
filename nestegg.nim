@@ -52,19 +52,14 @@ type
     of tkUnknown:
       discard
     num*: cuint
-    codecData*: seq[CodecChunk]
+    codecData*: seq[Chunk]
   Track* = ref TrackObj
   ChunkObj* = object
     ## A chunk of data. Each multiplexed packet contains a series of these chunks that make up the
     ## actual encoded data to be sent to the decoder
-    size*: csize_t
-    data*: ptr cuchar
+    len*: int
+    data*: ptr UncheckedArray[byte]
   Chunk* = ref ChunkObj
-  CodecChunkObj* = object
-    ## A chunk of initialization data preperaed by the encoder and used to intialize a decoder
-    size*: csize_t
-    data*: ptr cuchar
-  CodecChunk* = ref CodecChunkObj
   PacketObj* = object
     ## An individual data packet. A stream of these is sent over a file or a network, each track's packets
     ## interspersed with each other. That's what makes it a multiplexed stream. Each `Packet` contains
@@ -158,10 +153,12 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
     # just ignore errors for this one, they get returned when a codec isn't vorbis or opus
     # if there really is womething wrong with the init data, we catch it in track_codec_data below
     for i in 0..<n:
-      var codecChunk:CodecChunk
-      new(codecChunk)  # codec data gets freed with the context so no finalizer
-      if 0 != track_codec_data(context, trackNum, i.cuint, codecChunk.data.addr, codecChunk.size.addr):
+      var codecChunk:Chunk
+      new(codecChunk)
+      var l: uint
+      if 0 != track_codec_data(context, trackNum, i.cuint, cast[ptr ptr cuchar](codecChunk.data.addr), l.addr):
         raise newException(InitError, "error initializing codec initialization data chunk $# of track $#" % [$i, $trackNum])
+      codecChunk.len = l.int
       result.codecData.add(codecChunk)
 
 proc newSource(file: File): Source =
@@ -234,8 +231,10 @@ iterator items*(demuxer: Demuxer): Packet =
     for i in 0..<packet.length:
       var chunk:Chunk
       new(chunk)
-      if 0 != packet_data(packet.raw, i.cuint, chunk.data.addr, chunk.size.addr):
+      var l:uint
+      if 0 != packet_data(packet.raw, i.cuint, cast[ptr ptr cuchar](chunk.data.addr), l.addr):
         raise newException(DemuxError, "could not retrieve data chunk from track $#" % $i)
+      chunk.len = l.int
       packet.chunks.add(chunk)
 
     yield packet
@@ -251,9 +250,10 @@ iterator items*(packet: Packet): Chunk =
   for p in packet.chunks:
     yield p
 
-template toOpenArray*(chunk:Chunk | CodecChunk, first, last: int): openArray[byte] =
+template toOpenArray*(chunk:Chunk, first, last: int): openArray[byte] =
   ## Allows passing a chunk of data to various collection functions that take an openArray
   ## for data analysis or processing. This is always a copy operation.
-  raise newException(ValueError, "last $# is larger than size $#" & ($last, $chunk.size))
+  if last > chunk.len:
+    raise newException(ValueError, "last:int $# is larger than chunk.len $#" % [$last, $chunk.len])
   toOpenArray(chunk.data, first, last)
 
