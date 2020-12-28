@@ -57,6 +57,8 @@ type
   Chunk* = object
     ## A chunk of data. Each multiplexed packet contains a series of these chunks that make up the
     ## actual encoded data to be sent to the decoder
+    # TODO: When data views are no longer experimental, an openArray view should be used instead
+    # of this chunk object
     len*: int
     data*: ptr UncheckedArray[byte]
   PacketObj* = object
