@@ -54,12 +54,11 @@ type
     num*: cuint
     codecData*: seq[Chunk]
   Track* = ref TrackObj
-  ChunkObj* = object
+  Chunk* = object
     ## A chunk of data. Each multiplexed packet contains a series of these chunks that make up the
     ## actual encoded data to be sent to the decoder
     len*: int
     data*: ptr UncheckedArray[byte]
-  Chunk* = ref ChunkObj
   PacketObj* = object
     ## An individual data packet. A stream of these is sent over a file or a network, each track's packets
     ## interspersed with each other. That's what makes it a multiplexed stream. Each `Packet` contains
@@ -154,7 +153,6 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
     # if there really is womething wrong with the init data, we catch it in track_codec_data below
     for i in 0..<n:
       var codecChunk:Chunk
-      new(codecChunk)
       var l: uint
       if 0 != track_codec_data(context, trackNum, i.cuint, cast[ptr ptr cuchar](codecChunk.data.addr), l.addr):
         raise newException(InitError, "error initializing codec initialization data chunk $# of track $#" % [$i, $trackNum])
@@ -230,7 +228,6 @@ iterator items*(demuxer: Demuxer): Packet =
     
     for i in 0..<packet.length:
       var chunk:Chunk
-      new(chunk)
       var l:uint
       if 0 != packet_data(packet.raw, i.cuint, cast[ptr ptr cuchar](chunk.data.addr), l.addr):
         raise newException(DemuxError, "could not retrieve data chunk from track $#" % $i)
