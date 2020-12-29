@@ -44,6 +44,8 @@ Example of regular use with one or more decoders
 
     file.close()
 
+See [/capocasa/lov](lov, a minimalistic nim av1-opus-webm video player) for a fuller usage exampleb
+
 Documentation
 -------------
 
