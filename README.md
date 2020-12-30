@@ -11,36 +11,38 @@ Example
 
 Example of regular use with one or more decoders
 
-    import nestegg
+```nim
+import nestegg
 
-    let file = open("myvideo.webm")
-    let demuxer = Demuxer(file)
+let file = open("myvideo.webm")
+let demuxer = Demuxer(file)
 
-    for track in d.tracks:
-      echo $track.kind, " track with ", $track.codec, " codec"
+for track in d.tracks:
+  echo $track.kind, " track with ", $track.codec, " codec"
 
-      # initialize decoder for each track here
+  # initialize decoder for each track here
 
-    for packet in demuxer:
+for packet in demuxer:
 
-      if packet.track.num == 0:
-        echo $d.kind, " track with ", $d.codec, " codec"
+  if packet.track.num == 0:
+    echo $d.kind, " track with ", $d.codec, " codec"
 
-        for chunk in packet:
-          
-          # send data chunk to decoder
+    for chunk in packet:
+      
+      # send data chunk to decoder
 
-          # if the decoder is also a C wrapper, an array
-          # and a length are usually supplied
-          # this is not memory safe
-          
-          myDecoder.sendData(chunk.data, chunk.length)
+      # if the decoder is also a C wrapper, an array
+      # and a length are usually supplied
+      # this is not memory safe
+      
+      myDecoder.sendData(chunk.data, chunk.length)
 
-          # chunk.data is a ptr UncheckedArray[byte] and may need 
-          # to be cast to whatever the decoder expects
-          # myDecoder.sendData(cast[pointer](chunk.data), chunk.length)
+      # chunk.data is a ptr UncheckedArray[byte] and may need 
+      # to be cast to whatever the decoder expects
+      # myDecoder.sendData(cast[pointer](chunk.data), chunk.length)
 
-    file.close()
+file.close()
+```
 
 See http://github.com/capocasa/lov, a minimalistic nim av1-opus-webm video player, for a fuller usage example
 
