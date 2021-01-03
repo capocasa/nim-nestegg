@@ -1,7 +1,7 @@
 import nimterop/[build, cimport]
 import strutils
 
-## dewebm - a portable, statically linked WebM format demuxer for Nim
+## nim-nestegg - a portable, statically linked WebM format demuxer for Nim
 ##
 ## wraps the popular and portable nestegg C library from mozilla in Nim goodness (expressiveness and memory safety)
 
