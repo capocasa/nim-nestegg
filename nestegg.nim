@@ -262,3 +262,19 @@ template toOpenArray*(chunk:Chunk, first, last: int): openArray[byte] =
     raise newException(ValueError, "last:int $# is larger than chunk.len $#" % [$last, $chunk.len])
   toOpenArray(chunk.data, first, last)
 
+proc videoParams*(demuxer: Demuxer): video_params =
+  ## convenience method to get the demuxer's video parameters
+  ## this simply returns the first track's video params, ignoring
+  ## the corner case of additional differing video tracks
+  for track in demuxer.tracks:
+    if track.kind == tkVideo:
+      return track.videoParams
+
+proc audioParams*(demuxer: Demuxer): audio_params =
+  ## convenience method to get the demuxer's audio parameters
+  ## this simply returns the first track's audio params, ignoring
+  ## the corner case of additional differing audio tracks
+  for track in demuxer.tracks:
+    if track.kind == tkAudio:
+      return track.audioParams
+
