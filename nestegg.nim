@@ -86,6 +86,8 @@ type
     duration*: uint64
     source*: Source
     tracks*: seq[Track]
+    firstVideo*: Track
+    firstAudio*: Track
   Demuxer* = ref DemuxerObj
 
 proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
@@ -142,7 +144,7 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
 
     if 0 != track_default_duration(context, trackNum, result.duration.addr):
       raise newException(InitError, "error initializing track duration for track $#" % $trackNum)
-    result.fps = 1.0 / result.duration.float
+    result.fps = 1000_000_000.0 / result.duration.float
 
   of tkAudio:
     if 0 != track_audio_params(context, trackNum, result.audioParams.addr):
@@ -208,6 +210,15 @@ proc newDemuxer*(source: Source): Demuxer =
   for i in 0..<n:
     result.tracks[i] = newTrack(result.context, i)
 
+  for track in result.tracks:
+    if track.kind == tkVideo:
+      result.firstVideo = track
+      break
+  for track in result.tracks:
+    if track.kind == tkAudio:
+      result.firstAudio = track
+      break
+
 template newDemuxer*(file: File): Demuxer =
   ## Convenience template to create a demuxer from a file objcet
   ## If other sources are created, adding one of these keeps the interface friendly
@@ -261,20 +272,4 @@ template toOpenArray*(chunk:Chunk, first, last: int): openArray[byte] =
   if last > chunk.len:
     raise newException(ValueError, "last:int $# is larger than chunk.len $#" % [$last, $chunk.len])
   toOpenArray(chunk.data, first, last)
-
-proc videoParams*(demuxer: Demuxer): video_params =
-  ## convenience method to get the demuxer's video parameters
-  ## this simply returns the first track's video params, ignoring
-  ## the corner case of additional differing video tracks
-  for track in demuxer.tracks:
-    if track.kind == tkVideo:
-      return track.videoParams
-
-proc audioParams*(demuxer: Demuxer): audio_params =
-  ## convenience method to get the demuxer's audio parameters
-  ## this simply returns the first track's audio params, ignoring
-  ## the corner case of additional differing audio tracks
-  for track in demuxer.tracks:
-    if track.kind == tkAudio:
-      return track.audioParams
 
