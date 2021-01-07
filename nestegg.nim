@@ -46,6 +46,8 @@ type
     of tkVideo:
       videoCodec*: VideoCodec
       videoParams*: video_params
+      duration*: culonglong
+      fps*: float
     of tkAudio:
       audioCodec*: AudioCodec
       audioParams*: audio_params
@@ -137,6 +139,10 @@ proc newTrack*(context: ptr nestegg, trackNum: cuint): Track =
       vcUnknown
     else:
       raw_codec_id.VideoCodec
+
+    if 0 != track_default_duration(context, trackNum, result.duration.addr):
+      raise newException(InitError, "error initializing track duration for track $#" % $trackNum)
+    result.fps = 1.0 / result.duration.float
 
   of tkAudio:
     if 0 != track_audio_params(context, trackNum, result.audioParams.addr):
