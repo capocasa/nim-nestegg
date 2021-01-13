@@ -256,6 +256,15 @@ template newDemuxer*(file: File): Demuxer =
   ## If other sources are created, adding one of these keeps the interface friendly
   newDemuxer(newSource(file))
 
+proc seek*(demuxer: Demuxer, timestamp: uint64) =
+  ## Seek to specified nestegg timestamp
+  ## Note that some decoders require their own seek calls as well
+  for i in 0..<demuxer.tracks.len:
+    if demuxer.tracks[i].kind == tkVideo:
+      if 0 != track_seek(demuxer.context, i.cuint, timestamp):
+        raise newException(DemuxError, "Could not seek to $# on track $#" % [$timestamp, $i])
+      break
+
 proc cleanup(packet: Packet) =
   ## Object cleanup for packets. Explicitly frees the memory occupied by the packet.
   free_packet(packet.raw)
