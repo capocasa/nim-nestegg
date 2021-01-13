@@ -10,36 +10,40 @@ import nestegg/wrapper
 export audio_params
 export video_params
 
-type
-  va_list {.importc: "va_list", header: "<stdarg.h>".} = object
+when defined(nestegg_debug):
+  type
+    va_list {.importc: "va_list", header: "<stdarg.h>".} = object
 
-proc vprintf(format: cstring, args: va_list) {.cdecl, importc, header: 
-"stdio.h"}
-proc vfprintf(file: File, format: cstring, args: va_list) {.cdecl, importc, header: 
-"stdio.h"}
-proc va_start(args: va_list, format: cstring) {.cdecl, importc, header: 
-"stdio.h"}
-proc va_end(args: va_list) {.cdecl, importc, header: 
-"stdio.h"}
+  proc vprintf(format: cstring, args: va_list) {.cdecl, importc, header: 
+  "stdio.h"}
+  proc vfprintf(file: File, format: cstring, args: va_list) {.cdecl, importc, header: 
+  "stdio.h"}
+  proc va_start(args: va_list, format: cstring) {.cdecl, importc, header: 
+  "stdio.h"}
+  proc va_end(args: va_list) {.cdecl, importc, header: 
+  "stdio.h"}
 
-proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl,varargs} =
-  var sev:cstring
-  case (severity):
-  of LOG_DEBUG:
-    sev = "debug:   "
-  of LOG_WARNING:
-    sev = "warning: "
-  of LOG_CRITICAL:
-    sev = "critical:"
-  else:
-    sev = "unknown: "
-  stderr.write sev
-  
-  var args:va_list
-  va_start(args, format)
-  vfprintf(stderr, format, args)
-  va_end(args)
-  stderr.writeLine ""
+  proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl,varargs} =
+    var sev:cstring
+    case (severity):
+    of LOG_DEBUG:
+      sev = "debug:   "
+    of LOG_WARNING:
+      sev = "warning: "
+    of LOG_CRITICAL:
+      sev = "critical:"
+    else:
+      sev = "unknown: "
+    stderr.write sev
+    
+    var args:va_list
+    va_start(args, format)
+    vfprintf(stderr, format, args)
+    va_end(args)
+    stderr.writeLine ""
+else:
+  const log_callback = nil
+
 
 const unknownValue = high(int8)
 
@@ -222,6 +226,7 @@ proc newDemuxer*(source: Source): Demuxer =
   ## to retrieve data packets from the stream.
   new(result, cleanup)
   result.source = source
+
   if 0 != init(result.context.addr, result.source.io, cast[log](log_callback), -1):
     # insert statemnts into nestegg.h/nestegg_init for more detailed debugging 
     raise newException(InitError, "initializing nestegg demuxer failed")
