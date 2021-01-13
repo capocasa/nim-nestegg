@@ -44,7 +44,9 @@ for packet in demuxer:
 file.close()
 ```
 
-See http://github.com/capocasa/lov, a minimalistic nim av1-opus-webm video player, for a fuller usage example
+nestegg's internal debug logs can be output by compiling with -d:nestegg_debug.
+
+See http://github.com/capocasa/lov, a minimalistic nim av1-opus-webm video player, for a fuller usage example, as well as project status.
 
 Documentation
 -------------
