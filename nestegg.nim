@@ -10,9 +10,36 @@ import nestegg/wrapper
 export audio_params
 export video_params
 
-proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl} =
-  # TODO: implement logging
-  discard
+type
+  va_list {.importc: "va_list", header: "<stdarg.h>".} = object
+
+proc vprintf(format: cstring, args: va_list) {.cdecl, importc, header: 
+"stdio.h"}
+proc vfprintf(file: File, format: cstring, args: va_list) {.cdecl, importc, header: 
+"stdio.h"}
+proc va_start(args: va_list, format: cstring) {.cdecl, importc, header: 
+"stdio.h"}
+proc va_end(args: va_list) {.cdecl, importc, header: 
+"stdio.h"}
+
+proc log_callback(context: ptr nestegg, severity: cuint, format: cstring) {.cdecl,varargs} =
+  var sev:cstring
+  case (severity):
+  of LOG_DEBUG:
+    sev = "debug:   "
+  of LOG_WARNING:
+    sev = "warning: "
+  of LOG_CRITICAL:
+    sev = "critical:"
+  else:
+    sev = "unknown: "
+  stderr.write sev
+  
+  var args:va_list
+  va_start(args, format)
+  vfprintf(stderr, format, args)
+  va_end(args)
+  stderr.writeLine ""
 
 const unknownValue = high(int8)
 
