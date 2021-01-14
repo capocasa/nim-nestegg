@@ -274,9 +274,13 @@ iterator items*(demuxer: Demuxer): Packet =
   ## can be from various tracks, no guarantees are made in which order packets
   ## arrive in. Within the iterator, select codecs to handle the data and perform
   ## buffering as needed.
-  var packet: Packet
-  new(packet, cleanup)
-  while 0 != read_packet(demuxer.context, packet.raw.addr):
+  while true:
+    var raw:ptr cpacket
+    if 0 == read_packet(demuxer.context, raw.addr):
+      break
+    var packet: Packet
+    new(packet, cleanup)
+    packet.raw = raw
     var i:cuint
     if 0 != packet_track(packet.raw, i.addr):
       raise newException(DemuxError, "could not retrieve packet track number")
@@ -295,8 +299,6 @@ iterator items*(demuxer: Demuxer): Packet =
       packet.chunks.add(chunk)
 
     yield packet
-  
-    new(packet) # cleanup already specified, once per type is enough
 
 #template items*(demuxer: Demuxer) =
 #  ## Convenience template that allows iterating directly over the demuxer object
