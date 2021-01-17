@@ -256,6 +256,13 @@ template newDemuxer*(file: File): Demuxer =
   ## If other sources are created, adding one of these keeps the interface friendly
   newDemuxer(newSource(file))
 
+template newDemuxer*(filename: string): Demuxer =
+  ## Convenience template to create a demuxer from a file name.
+  ## The file is kept open and can be left open on termination.
+  ## If the file needs to be closed within the program, it can
+  ## be done manually like so: demuxer.file.close
+  newDemuxer(filename.open)
+
 proc seek*(demuxer: Demuxer, timestamp: uint64) =
   ## Seek to specified nestegg timestamp
   ## Note that some decoders require their own seek calls as well
