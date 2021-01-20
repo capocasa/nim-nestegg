@@ -121,7 +121,7 @@ type
     firstAudio*: Track
   Demuxer* = ref DemuxerObj
 
-proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
+proc read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
   ## Internal "seek" (position setting) procedure to map a file object to the internal muxer
   let file = cast[File](file)
   let n = file.readBuffer(buffer, length)
@@ -132,12 +132,12 @@ proc file_read(buffer: pointer, length: csize_t, file: pointer): cint {.cdecl} =
       return -1
   return 1
 
-proc file_seek(offset: clonglong, whence: cint, file: pointer): cint {.cdecl} =
+proc seek(offset: clonglong, whence: cint, file: pointer): cint {.cdecl} =
   ## Internal "seek" (position setting) procedure to map a file object to the internal muxer
   let file = cast[File](file)
   file.setFilePos(offset, whence.FileSeekPos)
 
-proc file_tell(file: pointer): clonglong {.cdecl} =
+proc tell(file: pointer): clonglong {.cdecl} =
   ## Internal "tell" (position getting) procedure to map a file object to the internal muxer
   let file = cast[File](file)
   return file.getFilePos
@@ -207,9 +207,9 @@ proc newSource(file: File): Source =
   ## implemented by duplicating this constructor and taking a different object
   ## to initialize from
   new(result)
-  result.io.read = file_read
-  result.io.seek = file_seek
-  result.io.tell = file_tell
+  result.io.read = read
+  result.io.seek = seek
+  result.io.tell = tell
 
   # This is potentially dangerous. Use Nim objects that can be cast to pointers
   # and back without a lot of fuss, since this is passed directly into the wrapped
