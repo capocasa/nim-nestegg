@@ -9,3 +9,7 @@ license       = "0BSD"
 
 requires "nim >= 1.4.0"
 requires "nimterop"
+foreignDep "autoconf"
+foreignDep "libtool"
+foreignDep "make"
+
